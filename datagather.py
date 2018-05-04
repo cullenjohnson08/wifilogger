@@ -17,7 +17,7 @@ def getlocation(gpsdevice): #Pass in gps interface
     #Get current location and return it as a key pair
     ser = serial.Serial()
     ser.port = gpsdevice
-    ser.baudrate = 9600 
+    ser.baudrate = 9600
     print("In GPS Getlocation")
     try:
         ser.open()
@@ -31,7 +31,7 @@ def getlocation(gpsdevice): #Pass in gps interface
                 print("Got GPGGA")
                 gotlocation = True
                 g = nmea.GPGGA()
-                #print(gpstext) 
+                #print(gpstext)
                 g.parse(gpstext)
                 gpsdata = {'latitude':g.latitude, 'longitude': g.longitude, 'timestamp':g.timestamp, 'altitude':g.antenna_altitude}
             else:
@@ -59,7 +59,7 @@ def initdb(dbname):
         c = conn.cursor()
         c.execute('''CREATE TABLE datasamples
             (bssid character(12), essid varchar(255),
-            power int, channel int, enc_type varchar(100), mode varchar(100), pic_filename varchar(100), latitude float, longitude float, altitude float, temperature int, created_at float)''')
+            power int, channel int, enc_type varchar(100), mode varchar(100), latitude float, longitude float, altitude float, created_at float)''')
         conn.commit()
         print ("Database Created")
         return conn
@@ -74,7 +74,7 @@ def saveData(wifitree, gpsdata, picnum, conn, temp):
                 #TODO: Take picture with superimposed GPS coordinates
                 #Save to database
                 c = conn.cursor()
-                c.execute("INSERT INTO datasamples(bssid, essid, power, channel, enc_type, mode, pic_filename, latitude, longitude, altitude, temperature, created_at) VALUES('" + ap.address + "','" + ap.ssid + "','" + str(ap.signal) + "','" + str(ap.channel) + "','" + encryption + "','" + ap.mode + "', '" + picfilename + "','" + str(float(gpsdata['latitude'])) + "','" + str(float(gpsdata['longitude'])) + "', '" + str(float(gpsdata['altitude'])) + "', '" + str(temp) + "', '" + str(float(gpsdata['timestamp'])) + "')")
+                c.execute("INSERT INTO datasamples(bssid, essid, power, channel, enc_type, mode, latitude, longitude, altitude, created_at) VALUES('" + ap.address + "','" + ap.ssid + "','" + str(ap.signal) + "','" + str(ap.channel) + "','" + encryption + "','" + ap.mode + "','" + str(float(gpsdata['latitude'])) + "','" + str(float(gpsdata['longitude'])) + "', '" + str(float(gpsdata['altitude']))+ "', '" + str(float(gpsdata['timestamp'])) + "')")
                 conn.commit()
 
 def scan(interface):
@@ -94,7 +94,7 @@ def converter(num):
         min = int(mod1-mod2)
         sec = int(((round(mod2, 4)/60)*3600)*100)
         return str(deg) + '/1,' + str(min) + '/1,' + str(sec) + '/100'
-        
+
 
 def main(argv):
     #get wifi device from argv
@@ -106,16 +106,11 @@ def main(argv):
     else:
         interface = 'wlan0'
         gpsdevice = '/dev/ttyAMA0'
-    camera = picamera.PiCamera()
 
     #Main Loop
-    picnum = 0
-    while (os.path.isfile("cap" +str(picnum)+".jpg") == True):
-        picnum += 1 
     conn = initdb("balloonsat")
     while (1):
         gpsdata = getlocation(gpsdevice)
-        imagefile = ("cap" + str(picnum) + ".jpg")
         try:
             print("long: "+str(gpsdata['longitude']))
             long = converter(gpsdata['longitude'])
@@ -136,21 +131,12 @@ def main(argv):
             print("No wifi data recieved")
         try:
             print("Going to send: " + lat + " Lat and " +long + " Long")
-            camera.exif_tags['GPS.GPSAltitude'] = alt
-            camera.exif_tags['GPS.GPSAltitudeRef'] = '0'
-            camera.exif_tags['GPS.GPSLatitude'] = lat
-            camera.exif_tags['GPS.GPSLatitudeRef'] = 'N'
-            camera.exif_tags['GPS.GPSLongitude'] = long
-            camera.exif_tags['GPS.GPSLongitudeRef'] = 'W'
-            #camera.exif_tags[0x9400] = str(tempInt) + '/1000'
-            camera.capture(imagefile)
         except:
-            print("No camera currently detected")
-        try: 
-            saveData(wifitree, gpsdata, picnum, conn, tempInt)
+            print("GPS Error")
+        try:
+            saveData(wifitree, gpsdata, conn)
         except:
             print("No wifi adapter detected")
-        picnum = picnum + 1
         time.sleep(10) #wait 10 seconds, then rescan
 
 
